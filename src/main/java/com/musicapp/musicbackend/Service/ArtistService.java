@@ -5,6 +5,9 @@ import com.musicapp.musicbackend.model.Artist;
 import com.musicapp.musicbackend.model.ArtistDto;
 import com.musicapp.musicbackend.repository.ArtistRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -15,11 +18,13 @@ import java.util.UUID;
 public class ArtistService {
     @Autowired
     private ArtistRepository artistRepository;
-
-
-    public List<Artist> getAllArtists() {
-        return artistRepository.findAll();
+    public Page<Artist> getAllArtists(Pageable pageable)
+    {
+        return artistRepository.findAll(pageable);
     }
+//    public List<Artist> getAllArtists() {
+//        return artistRepository.findAll();
+//    }
 
     public ResponseEntity<Artist> getArtistById(UUID id) {
         Artist artist = artistRepository.findById(id).orElse(null);
@@ -28,6 +33,11 @@ public class ArtistService {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+    @Cacheable(value = "artistsByArtistName", key = "#artistName")
+    public List<Artist> getArtistByArtistName(String artistName){
+        System.out.println("call from db");
+        return artistRepository.findByArtistName(artistName);
     }
 
     public ResponseEntity<Artist> createArtist(ArtistDto artistDto) {
@@ -51,6 +61,7 @@ public class ArtistService {
     }
 
     public List<Artist> searchArtistsByName(String artistName) {
+
         return artistRepository.findByArtistName(artistName);
     }
     public ResponseEntity<Void> deleteArtist(UUID id) {

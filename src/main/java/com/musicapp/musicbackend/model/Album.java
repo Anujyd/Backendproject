@@ -2,7 +2,6 @@ package com.musicapp.musicbackend.model;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,16 +13,19 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-@Document(collection = "artist")
-public class Artist implements Serializable {
+@Document(collection = "Album")
+public class Album implements Serializable {
     @Id
     private String id;
     @NotBlank
-    private String artistName;
+    private String name;
     @NotBlank
-    private String country;
+    private String artist;
+    @NotBlank
+    private String label;
+    @NotBlank
+    private String language;
 
     @PostConstruct
     public void prePersist(){this.setId(UUID.randomUUID().toString());}
-
 }

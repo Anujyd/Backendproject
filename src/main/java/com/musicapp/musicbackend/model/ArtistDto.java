@@ -3,10 +3,11 @@ package com.musicapp.musicbackend.model;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 @Data
-public class ArtistDto {
+public class  ArtistDto implements Serializable {
     private String id;
 
     @NotBlank
