@@ -3,6 +3,7 @@ package com.musicapp.musicbackend.Service;
 
 import com.musicapp.musicbackend.model.Artist;
 import com.musicapp.musicbackend.model.ArtistDto;
+import com.musicapp.musicbackend.repository.AlbumRepository;
 import com.musicapp.musicbackend.repository.ArtistRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -12,12 +13,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 @Service
 public class ArtistService {
     @Autowired
     private ArtistRepository artistRepository;
+
     public Page<Artist> getAllArtists(Pageable pageable)
     {
         return artistRepository.findAll(pageable);

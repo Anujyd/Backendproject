@@ -3,6 +3,8 @@ package com.musicapp.musicbackend.Controller;
 import com.musicapp.musicbackend.Service.SongService;
 import com.musicapp.musicbackend.model.Song;
 import com.musicapp.musicbackend.model.SongDto;
+import com.musicapp.musicbackend.repository.AlbumRepository;
+import com.musicapp.musicbackend.repository.ArtistRepository;
 import com.musicapp.musicbackend.repository.SongRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,23 @@ public class SongController {
     @Autowired
     private SongRepository songRepository;
 
+    @Autowired
+    private ArtistRepository artistRepository;
+
+    @PostMapping("/")
+    public ResponseEntity<SongDto> createSong(@RequestBody SongDto songDto) {
+        SongDto createdSong = songService.createSong(songDto);
+        return new ResponseEntity<>(createdSong, HttpStatus.CREATED);
+    }
+    @GetMapping("/filename/{filename}")
+    public ResponseEntity<SongDto> getSongByFilename(@PathVariable String filename) {
+        SongDto song = songService.getSongByFilename(filename);
+        if (song != null) {
+            return new ResponseEntity<>(song, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
     @GetMapping("/{id}")
     public ResponseEntity<SongDto> getSongById(@PathVariable UUID id) {
 
@@ -45,11 +64,7 @@ public class SongController {
 
     }
 
-    @PostMapping("/")
-    public ResponseEntity<SongDto> createSong(@RequestBody SongDto songDto) {
-        SongDto createdSong = songService.createSong(songDto);
-        return new ResponseEntity<>(createdSong, HttpStatus.CREATED);
-    }
+
 
     @GetMapping("/songs")
     public List<SongDto> getAllSongs(@RequestParam(value = "pageNumber", defaultValue = "1", required = false) Integer pageNumber, @RequestParam(value = "pageSize", defaultValue = "5", required = false) Integer pageSize) {

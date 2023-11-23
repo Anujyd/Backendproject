@@ -3,6 +3,9 @@ package com.musicapp.musicbackend.Controller;
 import com.musicapp.musicbackend.Service.AlbumService;
 import com.musicapp.musicbackend.model.Album;
 import com.musicapp.musicbackend.model.AlbumDTO;
+import com.musicapp.musicbackend.repository.AlbumRepository;
+import com.musicapp.musicbackend.repository.ArtistRepository;
+import com.musicapp.musicbackend.repository.SongRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +21,10 @@ import java.util.UUID;
 public class AlbumController {
     @Autowired
     private AlbumService albumService;
+    @Autowired
+    private AlbumRepository albumRepository;
+    @Autowired
+    private ArtistRepository artistRepository;
 
     @PostMapping("/")
     public ResponseEntity<Album> createAlbum(@RequestBody AlbumDTO albumDTO) {
@@ -72,6 +79,7 @@ public class AlbumController {
 
     @GetMapping("/albumName/{name}")
     public List<Album> getAlbumByAlbumName(@PathVariable String name) {
+
         return albumService.getAlbumByAlbumName(name);
     }
 

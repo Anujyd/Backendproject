@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
@@ -24,11 +25,13 @@ public class Song implements Serializable {
     @NotBlank
     private String filename;
 
-    @NotBlank
-    private String artist;
+//    @NotBlank
+//    private String artist;
 
     private boolean isFavorite;
 
+    @DBRef
+    private Artist artist;
     @NotBlank
     private String producer;
 

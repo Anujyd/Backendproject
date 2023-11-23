@@ -1,7 +1,10 @@
 package com.musicapp.musicbackend.Service;
 
+import com.musicapp.musicbackend.model.Artist;
+import com.musicapp.musicbackend.model.ArtistDto;
 import com.musicapp.musicbackend.model.Song;
 import com.musicapp.musicbackend.model.SongDto;
+import com.musicapp.musicbackend.repository.ArtistRepository;
 import com.musicapp.musicbackend.repository.SongRepository;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,8 @@ import java.util.stream.Collectors;
 public class SongService {
     @Autowired
     private SongRepository songRepository;
+    @Autowired
+    private ArtistRepository artistRepository;
 
     @Cacheable(value = "songsByTrackNumber", key = "#trackNumber")
     public List<Song> getSongsByTrackNumber(int trackNumber) {
@@ -28,16 +33,30 @@ public class SongService {
         return songRepository.findByTrackNumber(trackNumber);
     }
 
-    public SongDto createSong(@Valid SongDto songDto) {
-        if (isTrackNumberExists(songDto.getTrackNumber())) {
-            throw new IllegalArgumentException("Track number already exists.");
-        }
 
-        Song song = mapDtoToEntity(songDto);
-        song = songRepository.save(song);
-        return mapEntityToDto(song);
+public SongDto createSong(@Valid SongDto songDto) {
+    if (isTrackNumberExists(songDto.getTrackNumber())) {
+        throw new IllegalArgumentException("Track number already exists.");
     }
 
+    Song song = mapDtoToEntity(songDto);
+
+    Artist artist = getOrCreateArtist(String.valueOf(songDto.getArtist()));
+    song.setArtist(artist);
+
+    song = songRepository.save(song);
+    return mapEntityToDto(song);
+}
+    private Artist getOrCreateArtist(String artistName) {
+        List<Artist> existingArtists = artistRepository.findByArtistName(artistName);
+        if (!existingArtists.isEmpty()) {
+            return existingArtists.get(0);
+        } else {
+            Artist newArtist = new Artist();
+            newArtist.setArtistName(artistName);
+            return artistRepository.save(newArtist);
+        }
+    }
 
     public List<SongDto> getAllSongs(int pageNumber, int pageSize) {
 
@@ -62,7 +81,10 @@ public class SongService {
         Optional<Song> optionalSong = songRepository.findById(id);
         return optionalSong.map(this::mapEntityToDto).orElse(null);
     }
-
+    public SongDto getSongByFilename(String filename) {
+        Optional<Song> optionalSong = songRepository.findByFilename(filename);
+        return optionalSong.map(this::mapEntityToDto).orElse(null);
+    }
     @CacheEvict(value = "songsById", key = "#id")
     public SongDto updateSong(UUID id, @Valid SongDto updatedDto) {
         Song existingSong = songRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Song not found."));
@@ -93,10 +115,14 @@ public class SongService {
         songDTO.setId(song.getId());
         songDTO.setFilename(song.getFilename());
         songDTO.setFavorite(song.isFavorite());
-        songDTO.setArtist(song.getArtist());
+//        songDTO.setArtist(song.getArtist());
         songDTO.setProducer(song.getProducer());
         songDTO.setTrackNumber(song.getTrackNumber());
         songDTO.setDuration(song.getDuration());
+
+        if (song.getArtist() != null) {
+            songDTO.setArtist(ArtistDto.from(song.getArtist()));
+        }
         return songDTO;
     }
 
@@ -109,10 +135,15 @@ public class SongService {
         //song.setId(songDto.getId());
         song.setFilename(songDto.getFilename());
         song.setFavorite(songDto.isFavorite());
-        song.setArtist(songDto.getArtist());
+//        song.setArtist(songDto.getArtist());
         song.setProducer(songDto.getProducer());
         song.setTrackNumber(songDto.getTrackNumber());
         song.setDuration(songDto.getDuration());
+//        ArtistDto artistDto = songDto.getArtist();
+//        if (artistDto != null) {
+//            Optional<Artist> artistOptional = artistRepository.findById(UUID.fromString(artistDto.getId()));
+//            artistOptional.ifPresent(song::setArtist);
+//        }
         return song;
     }
 }

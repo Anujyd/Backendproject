@@ -4,7 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Data
 public class  ArtistDto implements Serializable {
@@ -23,4 +25,5 @@ public class  ArtistDto implements Serializable {
         artistDto.setCountry(artist.getCountry());
         return artistDto;
     }
+
 }

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
@@ -19,12 +20,15 @@ public class Album implements Serializable {
     private String id;
     @NotBlank
     private String name;
-    @NotBlank
-    private String artist;
+//    @NotBlank
+//    private String artist;
+    @DBRef
+    private Artist artist;
     @NotBlank
     private String label;
     @NotBlank
     private String language;
+    @NotBlank
 
     @PostConstruct
     public void prePersist(){this.setId(UUID.randomUUID().toString());}

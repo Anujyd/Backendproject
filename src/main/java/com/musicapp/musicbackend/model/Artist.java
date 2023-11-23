@@ -7,9 +7,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 @NoArgsConstructor
 @Getter
@@ -20,6 +23,10 @@ public class Artist implements Serializable {
     private String id;
     @NotBlank
     private String artistName;
+    @DBRef
+    private List<Song> songs ;
+    @DBRef
+    private List<Album> albums;
     @NotBlank
     private String country;
 

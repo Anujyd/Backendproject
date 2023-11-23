@@ -1,7 +1,10 @@
 package com.musicapp.musicbackend.Service;
 import com.musicapp.musicbackend.model.Album;
 import com.musicapp.musicbackend.model.AlbumDTO;
+import com.musicapp.musicbackend.model.Artist;
+import com.musicapp.musicbackend.model.ArtistDto;
 import com.musicapp.musicbackend.repository.AlbumRepository;
+import com.musicapp.musicbackend.repository.ArtistRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -15,7 +18,8 @@ import java.util.UUID;
 public class AlbumService {
     @Autowired
     private AlbumRepository albumRepository;
-
+    @Autowired
+    private ArtistRepository artistRepository;
     public Album createAlbum(AlbumDTO albumDTO) {
         if (albumDTO == null) {
             throw new IllegalArgumentException("AlbumDTO cannot be null.");
@@ -23,11 +27,26 @@ public class AlbumService {
 
         Album album = new Album();
         album.setName(albumDTO.getName());
-        album.setArtist(albumDTO.getArtist());
         album.setLabel(albumDTO.getLabel());
         album.setLanguage(albumDTO.getLanguage());
+//       album.setArtist(albumDTO.getArtist());
 
-        return albumRepository.save(album);
+        Artist artist = getOrCreateArtist(String.valueOf(albumDTO.getArtist()));
+        album.setArtist(artist);
+
+
+        album = albumRepository.save(album);
+        return mapDTOToEntity(album,albumDTO);
+    }
+    private Artist getOrCreateArtist(String artistName) {
+        List<Artist> existingArtists = artistRepository.findByArtistName(artistName);
+        if (!existingArtists.isEmpty()) {
+            return existingArtists.get(0);
+        } else {
+            Artist newArtist = new Artist();
+            newArtist.setArtistName(artistName);
+            return artistRepository.save(newArtist);
+        }
     }
 
     public Page<Album> getAllAlbums(Pageable pageable) {
@@ -69,10 +88,22 @@ public class AlbumService {
         albumRepository.deleteById(id);
     }
 
-    private void mapDTOToEntity(Album album, AlbumDTO albumDTO) {
+    private Album mapDTOToEntity(Album album, AlbumDTO albumDTO) {
         album.setName(albumDTO.getName());
-        album.setArtist(albumDTO.getArtist());
+//        album.setArtist(albumDTO.getArtist());
         album.setLabel(albumDTO.getLabel());
         album.setLanguage(albumDTO.getLanguage());
+        if (album.getArtist() != null) {
+            albumDTO.setArtist(ArtistDto.from(album.getArtist()));
+        }
+
+//        if (albumDTO.getArtist() != null) {
+//            ArtistDto artistDto = albumDTO.getArtist();
+//            Artist artist = new Artist();
+//            artist.setArtistName(artistDto.getArtistName());
+//            artist.setCountry(artistDto.getCountry());
+//            album.setArtist(artist);
+//        }
+        return album;
     }
 }
