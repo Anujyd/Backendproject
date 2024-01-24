@@ -11,11 +11,6 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -38,53 +33,39 @@ public class SongService {
         return songRepository.findByTrackNumber(trackNumber);
     }
 
-
-//public SongDto createSong(@Valid SongDto songDto) {
-//    if (isTrackNumberExists(songDto.getTrackNumber())) {
-//        throw new IllegalArgumentException("Track number already exists.");
-//    }
-//
-//    Song song = mapDtoToEntity(songDto);
-//    List<Artist> artists = songDto.getArtists().stream()
-//            .map(artistDto -> getOrCreateArtist(artistDto))
-//            .collect(Collectors.toList());
-//
-//    song.setArtists(artists);
-//    song = songRepository.save(song);
-//    return mapEntityToDto(song);
-//}
-public Mono<SongDto> createSong(@Valid SongDto songDto) {
-    if (isTrackNumberExists(songDto.getTrackNumber())) {
-        return Mono.error(new IllegalArgumentException("Track number already exists."));
-    }
-
-    Song song = mapDtoToEntity(songDto);
-    List<Artist> artists = songDto.getArtists().stream()
-            .map(artistDto -> getOrCreateArtist(artistDto))
-            .collect(Collectors.toList());
-    song.setArtists(artists);
-
-    return songRepository.save(song)
-            .map(this::mapEntityToDto);
-}
-private Artist getOrCreateArtist(ArtistDto artistDto) {
-    if (artistDto.getId() != null) {
-        Optional<Artist> existingArtist = artistRepository.findById(UUID.fromString(artistDto.getId()));
-        if (existingArtist.isPresent()) {
-            return existingArtist.get();
-        } else {
-            throw new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.");
+    public Mono<SongDto> createSong(@Valid SongDto songDto) {
+        if (isTrackNumberExists(songDto.getTrackNumber())) {
+            return Mono.error(new IllegalArgumentException("Track number already exists."));
         }
+
+        Song song = mapDtoToEntity(songDto);
+        List<Artist> artists = songDto.getArtists().stream()
+                .map(artistDto -> getOrCreateArtist(artistDto))
+                .collect(Collectors.toList());
+        song.setArtists(artists);
+
+        return songRepository.save(song)
+                .map(this::mapEntityToDto);
     }
 
-    
-    Artist newArtist = new Artist();
-    newArtist.setArtistName(artistDto.getArtistName());
-    newArtist.setCountry(artistDto.getCountry());
-    newArtist.setRole(artistDto.getRole());
-    newArtist.setImageUrl(artistDto.getImageUrl());
-    return artistRepository.save(newArtist);
-}
+    private Artist getOrCreateArtist(ArtistDto artistDto) {
+        if (artistDto.getId() != null) {
+            Optional<Artist> existingArtist = artistRepository.findById(UUID.fromString(artistDto.getId()));
+            if (existingArtist.isPresent()) {
+                return existingArtist.get();
+            } else {
+                throw new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.");
+            }
+        }
+
+
+        Artist newArtist = new Artist();
+        newArtist.setArtistName(artistDto.getArtistName());
+        newArtist.setCountry(artistDto.getCountry());
+        newArtist.setRole(artistDto.getRole());
+        newArtist.setImageUrl(artistDto.getImageUrl());
+        return artistRepository.save(newArtist);
+    }
 
     public Mono<List<SongDto>> getAllSongs(int pageNumber, int pageSize) {
         return songRepository.findAll()
@@ -93,52 +74,19 @@ private Artist getOrCreateArtist(ArtistDto artistDto) {
                 .collectList()
                 .map(this::mapEntitiesToDto);
     }
-//    public List<SongDto> getAllSongs(int pageNumber, int pageSize) {
-//
-//
-//        Pageable pageable = PageRequest.of(pageNumber, pageSize);
-//
-//        Page<Song> posts = songRepository.findAll(pageable);
-//
-//        List<Song> song = posts.getContent();
-//
-//        List<SongDto> content = song.stream().map(this::mapEntityToDto).toList();
-//        return content;
-//    }
 
     public Mono<SongDto> getSongById(UUID id) {
         return songRepository.findById(id)
                 .map(this::mapEntityToDto);
     }
-//    public SongDto getSongById(UUID id) {
-//        Optional<Song> optionalSong = songRepository.findById(id);
-//        return optionalSong.map(this::mapEntityToDto).orElse(null);
-//    }
-//    public SongDto getSongByFilename(String filename) {
-//        Optional<Song> optionalSong = songRepository.findByFilename(filename);
-//        return optionalSong.map(this::mapEntityToDto).orElse(null);
-//    }
 
     public Mono<SongDto> getSongByFilename(String filename) {
         return songRepository.findByFilename(filename)
                 .map(this::mapEntityToDto)
                 .switchIfEmpty(Mono.empty()); // Return an empty Mono if not found
     }
-    @CacheEvict(value = "songsById", key = "#id")
-//    public SongDto updateSong(UUID id, @Valid SongDto updatedDto) {
-//        Song existingSong = songRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Song not found."));
-//
-//
-//        if (existingSong.getTrackNumber() != updatedDto.getTrackNumber() && isTrackNumberExists(updatedDto.getTrackNumber())) {
-//            throw new IllegalArgumentException("Track number already exists.");
-//        }
-//
-//        Song updatedSong = mapDtoToEntity(updatedDto);
-//        updatedSong = songRepository.save(updatedSong);
-//
-//        return mapEntityToDto(updatedSong);
-//    }
 
+    @CacheEvict(value = "songsById", key = "#id")
     public Mono<SongDto> updateSong(UUID id, SongDto updatedDTO) {
         return songRepository.findById(id)
                 .flatMap(existingSong -> {
@@ -156,9 +104,6 @@ private Artist getOrCreateArtist(ArtistDto artistDto) {
     public Mono<Void> deleteSong(UUID id) {
         return songRepository.deleteById(id);
     }
-//public Mono<Void> deleteSong(UUID id) {
-//    return songRepository.deleteById(id);
-//}
 
     private boolean isTrackNumberExists(int trackNumber) {
         return false;

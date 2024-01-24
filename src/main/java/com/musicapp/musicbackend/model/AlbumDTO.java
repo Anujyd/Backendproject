@@ -1,7 +1,6 @@
 package com.musicapp.musicbackend.model;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -21,8 +20,8 @@ public class AlbumDTO implements Serializable {
     private String language;
 
 
-    public static AlbumDTO from (Album album){
-        AlbumDTO albumDTO  = new AlbumDTO();
+    public static AlbumDTO from(Album album) {
+        AlbumDTO albumDTO = new AlbumDTO();
         albumDTO.setId(album.getId());
         albumDTO.setName(album.getName());
         albumDTO.setLabel(album.getLabel());

@@ -1,13 +1,11 @@
 package com.musicapp.musicbackend.repository;
 
 import com.musicapp.musicbackend.model.Album;
-import com.musicapp.musicbackend.model.Artist;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 import java.util.UUID;
 
-public interface AlbumRepository extends MongoRepository<Album , UUID> {
+public interface AlbumRepository extends MongoRepository<Album, UUID> {
     List<Album> findByName(String name);
-   // List<Artist> findByArtist(Artist artist);
 }

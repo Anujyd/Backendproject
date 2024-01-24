@@ -2,7 +2,6 @@ package com.musicapp.musicbackend.model;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,17 +27,11 @@ public class Song implements Serializable {
     @NotBlank
     private String filename;
 
-//    @NotBlank
-//    private String artist;
 
     private boolean isFavorite;
 
     @DBRef
     private List<Artist> artists = new ArrayList<>();
-//    @DBRef
-//    private Artist artist;
-//    @NotBlank
-//    private String producer;
 
     @NotBlank
     @Positive
@@ -48,7 +41,7 @@ public class Song implements Serializable {
     private double duration;
 
     @PostConstruct
-    public void prePersist(){
+    public void prePersist() {
         this.setId(UUID.randomUUID().toString());
     }
 }

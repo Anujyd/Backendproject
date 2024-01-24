@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
 @NoArgsConstructor
 @Getter
 @Setter
@@ -23,15 +24,17 @@ public class Album implements Serializable {
     @NotBlank
     private String name;
 
-
     @DBRef
     private List<Song> songs = new ArrayList<>();
     @NotBlank
     private String label;
     @NotBlank
     private String language;
+
     @NotBlank
 
     @PostConstruct
-    public void prePersist(){this.setId(UUID.randomUUID().toString());}
+    public void prePersist() {
+        this.setId(UUID.randomUUID().toString());
+    }
 }
