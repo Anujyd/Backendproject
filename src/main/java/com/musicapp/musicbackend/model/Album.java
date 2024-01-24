@@ -10,6 +10,8 @@ import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 @NoArgsConstructor
 @Getter
@@ -20,10 +22,10 @@ public class Album implements Serializable {
     private String id;
     @NotBlank
     private String name;
-//    @NotBlank
-//    private String artist;
+
+
     @DBRef
-    private Artist artist;
+    private List<Song> songs = new ArrayList<>();
     @NotBlank
     private String label;
     @NotBlank

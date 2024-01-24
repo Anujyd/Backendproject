@@ -23,8 +23,6 @@ public class AlbumController {
     private AlbumService albumService;
     @Autowired
     private AlbumRepository albumRepository;
-    @Autowired
-    private ArtistRepository artistRepository;
 
     @PostMapping("/")
     public ResponseEntity<Album> createAlbum(@RequestBody AlbumDTO albumDTO) {

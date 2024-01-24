@@ -5,16 +5,16 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Data
 public class AlbumDTO implements Serializable {
     private String id;
     @NotBlank
     private String name;
-//    @NotBlank
-//    private String artist;
-    @NotNull
-    private ArtistDto artist;
+    private List<SongDto> songs;
+
     @NotBlank
     private String label;
     @NotBlank
@@ -25,13 +25,9 @@ public class AlbumDTO implements Serializable {
         AlbumDTO albumDTO  = new AlbumDTO();
         albumDTO.setId(album.getId());
         albumDTO.setName(album.getName());
-//        albumDTO.setArtist(album.getArtist());
         albumDTO.setLabel(album.getLabel());
         albumDTO.setLanguage(album.getLanguage());
-
-        if (album.getArtist() != null) {
-            albumDTO.setArtist(ArtistDto.from(album.getArtist()));
-        }
+        albumDTO.setSongs(album.getSongs().stream().map(SongDto::from).collect(Collectors.toList()));
         return albumDTO;
     }
 }

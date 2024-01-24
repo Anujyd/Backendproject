@@ -2,6 +2,7 @@ package com.musicapp.musicbackend.model;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Document(collection = "song")
@@ -31,9 +34,11 @@ public class Song implements Serializable {
     private boolean isFavorite;
 
     @DBRef
-    private Artist artist;
-    @NotBlank
-    private String producer;
+    private List<Artist> artists = new ArrayList<>();
+//    @DBRef
+//    private Artist artist;
+//    @NotBlank
+//    private String producer;
 
     @NotBlank
     @Positive

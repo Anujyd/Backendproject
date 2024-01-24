@@ -6,9 +6,12 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.bson.types.Binary;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -23,10 +26,11 @@ public class Artist implements Serializable {
     private String id;
     @NotBlank
     private String artistName;
-    @DBRef
-    private List<Song> songs ;
-    @DBRef
-    private List<Album> albums;
+
+    @NotBlank
+    private String role;
+
+    private  String imageUrl;
     @NotBlank
     private String country;
 

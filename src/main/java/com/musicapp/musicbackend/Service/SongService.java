@@ -6,6 +6,7 @@ import com.musicapp.musicbackend.model.Song;
 import com.musicapp.musicbackend.model.SongDto;
 import com.musicapp.musicbackend.repository.ArtistRepository;
 import com.musicapp.musicbackend.repository.SongRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -13,7 +14,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,82 +33,132 @@ public class SongService {
     private ArtistRepository artistRepository;
 
     @Cacheable(value = "songsByTrackNumber", key = "#trackNumber")
-    public List<Song> getSongsByTrackNumber(int trackNumber) {
+    public Flux<Song> getSongsByTrackNumber(int trackNumber) {
         System.out.println("called from db");
         return songRepository.findByTrackNumber(trackNumber);
     }
 
 
-public SongDto createSong(@Valid SongDto songDto) {
+//public SongDto createSong(@Valid SongDto songDto) {
+//    if (isTrackNumberExists(songDto.getTrackNumber())) {
+//        throw new IllegalArgumentException("Track number already exists.");
+//    }
+//
+//    Song song = mapDtoToEntity(songDto);
+//    List<Artist> artists = songDto.getArtists().stream()
+//            .map(artistDto -> getOrCreateArtist(artistDto))
+//            .collect(Collectors.toList());
+//
+//    song.setArtists(artists);
+//    song = songRepository.save(song);
+//    return mapEntityToDto(song);
+//}
+public Mono<SongDto> createSong(@Valid SongDto songDto) {
     if (isTrackNumberExists(songDto.getTrackNumber())) {
-        throw new IllegalArgumentException("Track number already exists.");
+        return Mono.error(new IllegalArgumentException("Track number already exists."));
     }
 
     Song song = mapDtoToEntity(songDto);
+    List<Artist> artists = songDto.getArtists().stream()
+            .map(artistDto -> getOrCreateArtist(artistDto))
+            .collect(Collectors.toList());
+    song.setArtists(artists);
 
-    Artist artist = getOrCreateArtist(String.valueOf(songDto.getArtist()));
-    song.setArtist(artist);
-
-    song = songRepository.save(song);
-    return mapEntityToDto(song);
+    return songRepository.save(song)
+            .map(this::mapEntityToDto);
 }
-    private Artist getOrCreateArtist(String artistName) {
-        List<Artist> existingArtists = artistRepository.findByArtistName(artistName);
-        if (!existingArtists.isEmpty()) {
-            return existingArtists.get(0);
+private Artist getOrCreateArtist(ArtistDto artistDto) {
+    if (artistDto.getId() != null) {
+        Optional<Artist> existingArtist = artistRepository.findById(UUID.fromString(artistDto.getId()));
+        if (existingArtist.isPresent()) {
+            return existingArtist.get();
         } else {
-            Artist newArtist = new Artist();
-            newArtist.setArtistName(artistName);
-            return artistRepository.save(newArtist);
+            throw new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.");
         }
     }
 
-    public List<SongDto> getAllSongs(int pageNumber, int pageSize) {
+    
+    Artist newArtist = new Artist();
+    newArtist.setArtistName(artistDto.getArtistName());
+    newArtist.setCountry(artistDto.getCountry());
+    newArtist.setRole(artistDto.getRole());
+    newArtist.setImageUrl(artistDto.getImageUrl());
+    return artistRepository.save(newArtist);
+}
 
-
-        Pageable pageable = PageRequest.of(pageNumber, pageSize);
-
-        Page<Song> posts = songRepository.findAll(pageable);
-
-
-        List<Song> song = posts.getContent();
-
-        List<SongDto> content = song.stream().map(this::mapEntityToDto).toList();
-        return content;
-
-//        Pageable p =  PageRequest.of(pageSize, pageNumber);
-//        Page<Song> songs = songRepository.findAll(p);
-//       List<Song> songs = songRepository.findAll();
-//        return mapEntitiesToDto(songs);
+    public Mono<List<SongDto>> getAllSongs(int pageNumber, int pageSize) {
+        return songRepository.findAll()
+                .skip(pageNumber * pageSize)
+                .take(pageSize)
+                .collectList()
+                .map(this::mapEntitiesToDto);
     }
+//    public List<SongDto> getAllSongs(int pageNumber, int pageSize) {
+//
+//
+//        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+//
+//        Page<Song> posts = songRepository.findAll(pageable);
+//
+//        List<Song> song = posts.getContent();
+//
+//        List<SongDto> content = song.stream().map(this::mapEntityToDto).toList();
+//        return content;
+//    }
 
-    public SongDto getSongById(UUID id) {
-        Optional<Song> optionalSong = songRepository.findById(id);
-        return optionalSong.map(this::mapEntityToDto).orElse(null);
+    public Mono<SongDto> getSongById(UUID id) {
+        return songRepository.findById(id)
+                .map(this::mapEntityToDto);
     }
-    public SongDto getSongByFilename(String filename) {
-        Optional<Song> optionalSong = songRepository.findByFilename(filename);
-        return optionalSong.map(this::mapEntityToDto).orElse(null);
+//    public SongDto getSongById(UUID id) {
+//        Optional<Song> optionalSong = songRepository.findById(id);
+//        return optionalSong.map(this::mapEntityToDto).orElse(null);
+//    }
+//    public SongDto getSongByFilename(String filename) {
+//        Optional<Song> optionalSong = songRepository.findByFilename(filename);
+//        return optionalSong.map(this::mapEntityToDto).orElse(null);
+//    }
+
+    public Mono<SongDto> getSongByFilename(String filename) {
+        return songRepository.findByFilename(filename)
+                .map(this::mapEntityToDto)
+                .switchIfEmpty(Mono.empty()); // Return an empty Mono if not found
     }
     @CacheEvict(value = "songsById", key = "#id")
-    public SongDto updateSong(UUID id, @Valid SongDto updatedDto) {
-        Song existingSong = songRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Song not found."));
+//    public SongDto updateSong(UUID id, @Valid SongDto updatedDto) {
+//        Song existingSong = songRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Song not found."));
+//
+//
+//        if (existingSong.getTrackNumber() != updatedDto.getTrackNumber() && isTrackNumberExists(updatedDto.getTrackNumber())) {
+//            throw new IllegalArgumentException("Track number already exists.");
+//        }
+//
+//        Song updatedSong = mapDtoToEntity(updatedDto);
+//        updatedSong = songRepository.save(updatedSong);
+//
+//        return mapEntityToDto(updatedSong);
+//    }
 
-
-        if (existingSong.getTrackNumber() != updatedDto.getTrackNumber() && isTrackNumberExists(updatedDto.getTrackNumber())) {
-            throw new IllegalArgumentException("Track number already exists.");
-        }
-
-        Song updatedSong = mapDtoToEntity(updatedDto);
-        //updatedSong.setId(id);
-        updatedSong = songRepository.save(updatedSong);
-
-        return mapEntityToDto(updatedSong);
+    public Mono<SongDto> updateSong(UUID id, SongDto updatedDTO) {
+        return songRepository.findById(id)
+                .flatMap(existingSong -> {
+                    if (existingSong.getTrackNumber() != updatedDTO.getTrackNumber() && isTrackNumberExists(updatedDTO.getTrackNumber())) {
+                        return Mono.error(new IllegalArgumentException("Track number already exists."));
+                    } else {
+                        Song updatedSong = mapDtoToEntity(updatedDTO);
+                        updatedSong.setId(id.toString());
+                        return songRepository.save(updatedSong)
+                                .map(this::mapEntityToDto);
+                    }
+                });
     }
 
-    public void deleteSong(UUID id) {
-        songRepository.deleteById(id);
+    public Mono<Void> deleteSong(UUID id) {
+        return songRepository.deleteById(id);
     }
+//public Mono<Void> deleteSong(UUID id) {
+//    return songRepository.deleteById(id);
+//}
 
     private boolean isTrackNumberExists(int trackNumber) {
         return false;
@@ -115,13 +170,10 @@ public SongDto createSong(@Valid SongDto songDto) {
         songDTO.setId(song.getId());
         songDTO.setFilename(song.getFilename());
         songDTO.setFavorite(song.isFavorite());
-//        songDTO.setArtist(song.getArtist());
-        songDTO.setProducer(song.getProducer());
         songDTO.setTrackNumber(song.getTrackNumber());
         songDTO.setDuration(song.getDuration());
-
-        if (song.getArtist() != null) {
-            songDTO.setArtist(ArtistDto.from(song.getArtist()));
+        if (song.getArtists() != null) {
+            songDTO.setArtists(song.getArtists().stream().map(ArtistDto::from).collect(Collectors.toList()));
         }
         return songDTO;
     }
@@ -132,18 +184,11 @@ public SongDto createSong(@Valid SongDto songDto) {
 
     private Song mapDtoToEntity(SongDto songDto) {
         Song song = new Song();
-        //song.setId(songDto.getId());
+        song.setId(songDto.getId());
         song.setFilename(songDto.getFilename());
         song.setFavorite(songDto.isFavorite());
-//        song.setArtist(songDto.getArtist());
-        song.setProducer(songDto.getProducer());
         song.setTrackNumber(songDto.getTrackNumber());
         song.setDuration(songDto.getDuration());
-//        ArtistDto artistDto = songDto.getArtist();
-//        if (artistDto != null) {
-//            Optional<Artist> artistOptional = artistRepository.findById(UUID.fromString(artistDto.getId()));
-//            artistOptional.ifPresent(song::setArtist);
-//        }
         return song;
     }
 }

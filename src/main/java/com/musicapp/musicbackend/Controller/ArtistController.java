@@ -4,6 +4,9 @@ import com.musicapp.musicbackend.Service.ArtistService;
 
 import com.musicapp.musicbackend.model.Artist;
 import com.musicapp.musicbackend.model.ArtistDto;
+import com.musicapp.musicbackend.repository.ArtistRepository;
+import com.musicapp.musicbackend.repository.SongRepository;
+import org.bson.types.Binary;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.data.domain.Page;
@@ -13,6 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +27,10 @@ import java.util.UUID;
 public class ArtistController {
     @Autowired
     private ArtistService artistService;
+    @Autowired
+    private ArtistRepository artistRepository;
+//    @Autowired
+//    private SongRepository songRepository;
 
     @GetMapping("/")
         public ResponseEntity<Page<Artist>> getAllArtists(@RequestParam(defaultValue = "0") int page,
