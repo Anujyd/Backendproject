@@ -4,16 +4,18 @@ import com.musicapp.musicbackend.model.*;
 import com.musicapp.musicbackend.repository.AlbumRepository;
 import com.musicapp.musicbackend.repository.ArtistRepository;
 import com.musicapp.musicbackend.repository.SongRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,33 +29,32 @@ public class AlbumService {
     private ArtistRepository artistRepository;
     @Autowired
     private SongRepository songRepository;
-
-    public Album createAlbum(AlbumDTO albumDTO) {
-        if (albumDTO == null) {
-            throw new IllegalArgumentException("AlbumDTO cannot be null.");
-        }
-
-        Album album = new Album();
-        album.setName(albumDTO.getName());
-        album.setLabel(albumDTO.getLabel());
-        album.setLanguage(albumDTO.getLanguage());
-
-        List<Mono<Song>> songMonos = albumDTO.getSongs().stream()
-                .map(songDto -> createOrUpdateSong(songDto))
-                .collect(Collectors.toList());
-
-        // Use Flux to combine multiple Monos into one Flux
-        Flux<Song> songFlux = Flux.merge(songMonos);
-
-        // Collect the results into a List
-        List<Song> songs = songFlux.collectList().block();
-
-        album.setSongs(songs);
-        album = albumRepository.save(album);
-        return mapDTOToEntity(album, albumDTO);
+    
+public Mono<Album> createAlbum(AlbumDTO albumDTO) {
+    if (albumDTO == null) {
+        return Mono.error(new IllegalArgumentException("AlbumDTO cannot be null."));
     }
 
-    private Mono<Song> createOrUpdateSong(SongDto songDto) {
+    Album album = new Album();
+    album.setName(albumDTO.getName());
+    album.setLabel(albumDTO.getLabel());
+    album.setLanguage(albumDTO.getLanguage());
+
+    List<Flux<Song>> songMonos = albumDTO.getSongs().stream()
+            .map(songDto -> createOrUpdateSong(songDto))
+            .collect(Collectors.toList());
+
+    Flux<Song> songFlux = Flux.merge(songMonos);
+
+    return songFlux.collectList()
+            .flatMap(songs -> {
+                album.setSongs(songs);
+                return albumRepository.save(album);
+            })
+            .map(savedAlbum -> mapDTOToEntity(savedAlbum, albumDTO));
+}
+
+    private Flux<Song> createOrUpdateSong(SongDto songDto) {
         // Check if song exists by filename
         return songRepository.findByFilename(songDto.getFilename())
                 .switchIfEmpty(Mono.defer(() -> Mono.just(new Song())))  // If not found, create a new Song
@@ -64,27 +65,32 @@ public class AlbumService {
                     existingSong.setDuration(songDto.getDuration());
                     existingSong.setFavorite(songDto.isFavorite());
 
-                    // Create or retrieve artists and set them in the song
-                    List<Artist> artists = songDto.getArtists().stream()
-                            .map(artistDto -> getOrCreateArtist(artistDto))
-                            .collect(Collectors.toList());
+//                    // Create or retrieve artists and set them in the song
+                    Flux<Mono<Artist>> artistMonos = Flux.fromIterable(songDto.getArtists())
+                            .map(artistDto -> getOrCreateArtist(artistDto));
 
-                    existingSong.setArtists(artists);
+                    // Use Flux to combine multiple Monos into one Flux
+                    Flux<Artist> artistFlux = Flux.merge(artistMonos);
 
-                    // Save the song and return the Mono<Song>
-                    return songRepository.save(existingSong);
+                    // Collect the results into a List
+                    return artistFlux.collectList()
+                            .flatMap(artists -> {
+                                existingSong.setArtists(artists);
+
+                                // Save the song and return the Mono<Song>
+                                return songRepository.save(existingSong);
+                            });
                 });
     }
 
-    private Artist getOrCreateArtist(ArtistDto artistDto) {
+
+    private Mono<Artist> getOrCreateArtist(ArtistDto artistDto) {
+
         if (artistDto.getId() != null) {
-            Optional<Artist> existingArtist = artistRepository.findById(UUID.fromString(artistDto.getId()));
-            if (existingArtist.isPresent()) {
-                return existingArtist.get();
-            }
+            return artistRepository.findById(UUID.fromString(artistDto.getId()))
+                    .switchIfEmpty(Mono.error(new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.")));
         }
 
-        // If artist does not exist, create a new one
         Artist newArtist = new Artist();
         newArtist.setArtistName(artistDto.getArtistName());
         newArtist.setRole(artistDto.getRole());
@@ -93,48 +99,73 @@ public class AlbumService {
         return artistRepository.save(newArtist);
     }
 
-    public Page<Album> getAllAlbums(Pageable pageable) {
-        return albumRepository.findAll(pageable);
+public Flux<Album> getAllAlbums(Pageable pageable) {
+    return albumRepository.findAll()
+            .skip(pageable.getPageNumber() * pageable.getPageSize())
+            .take(pageable.getPageSize());
+}
+
+public Mono<Album> getAlbumById(UUID id) {
+    if (id == null) {
+        return Mono.error(new IllegalArgumentException("Album ID cannot be null."));
     }
-
-    public Album getAlbumById(UUID id) {
-        if (id == null) {
-            throw new IllegalArgumentException("Album ID cannot be null.");
-        }
-        return albumRepository.findById(id).orElse(null);
+    return albumRepository.findById(id);
+}
+@CacheEvict(value = "albumByAlbumName", key = "#name")
+public Flux<Album> updateAlbum(String name, AlbumDTO updatedDTO) {
+    if (name == null) {
+        return Flux.error(new IllegalArgumentException("Album name cannot be null."));
     }
+    return albumRepository.findByName(name)
+            .flatMap(existingAlbum -> {
+                mapDTOToEntity(existingAlbum, updatedDTO);
+                return albumRepository.save(existingAlbum);
+            });
+}
 
-    public Album updateAlbum(UUID id, AlbumDTO updatedDTO) {
-        if (id == null) {
-            throw new IllegalArgumentException("Album ID cannot be null.");
-        }
 
-        Album existingAlbum = albumRepository.findById(id).orElse(null);
-        if (existingAlbum == null) {
-            throw new IllegalArgumentException("Album not found.");
-        }
-
-        mapDTOToEntity(existingAlbum, updatedDTO);
-        return albumRepository.save(existingAlbum);
-    }
-
+//    @Cacheable(value = "albumByAlbumName", key = "#name")
+//    public List<Album> getAlbumByAlbumName(String name) {
+//        System.out.println("call from db");
+//        return albumRepository.findByName(name);
+//    }
     @Cacheable(value = "albumByAlbumName", key = "#name")
-    public List<Album> getAlbumByAlbumName(String name) {
+    public Flux<Album> getAlbumByAlbumName(String name) {
         System.out.println("call from db");
         return albumRepository.findByName(name);
     }
 
-    public List<Album> searchAlbumsByName(String name) {
+
+
+    public Flux<Album> searchAlbumsByName(String name) {
         return albumRepository.findByName(name);
     }
 
-    public void deleteAlbum(UUID id) {
-        if (id == null) {
-            throw new IllegalArgumentException("Album ID cannot be null.");
+    public Flux<Album> searchAlbumsByLabel(String label) {
+        return albumRepository.findByLabel(label);
+    }
+//    public Flux<Album> searchAlbums(String name, String label) {
+//        return albumRepository.findByNameAndLabel(name, label);
+//    }
+public Flux<Album> searchAlbums(AlbumDTO searchCriteria) {
+    if (searchCriteria != null) {
+        if (StringUtils.hasText(searchCriteria.getName()) && StringUtils.hasText(searchCriteria.getLabel())) {
+            return albumRepository.findByNameAndLabel(searchCriteria.getName(), searchCriteria.getLabel());
+        } else if (StringUtils.hasText(searchCriteria.getName())) {
+            return albumRepository.findByName(searchCriteria.getName());
+        } else if (StringUtils.hasText(searchCriteria.getLabel())) {
+            return albumRepository.findByLabel(searchCriteria.getLabel());
         }
-        albumRepository.deleteById(id);
+    }
+    return getAllAlbums(PageRequest.of(0, 10));
+}
+public Mono<Void> deleteAlbum(UUID id) {
+    if (id == null) {
+        return Mono.error(new IllegalArgumentException("Album ID cannot be null."));
     }
 
+    return albumRepository.deleteById(id).then();
+}
 
     private Album mapDTOToEntity(Album album, AlbumDTO albumDTO) {
 //        album.setId(album.getId());

@@ -31,7 +31,6 @@ public class Album implements Serializable {
     @NotBlank
     private String language;
 
-    @NotBlank
 
     @PostConstruct
     public void prePersist() {

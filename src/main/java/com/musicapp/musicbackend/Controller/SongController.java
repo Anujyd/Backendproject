@@ -30,7 +30,7 @@ public class SongController {
                 .map(createdSong -> new ResponseEntity<>(createdSong, HttpStatus.CREATED));
     }
 @GetMapping("/filename/{filename}")
-public Mono<ResponseEntity<SongDto>> getSongByFilename(@PathVariable String filename) {
+public Flux<ResponseEntity<SongDto>> getSongByFilename(@PathVariable String filename) {
     return songService.getSongByFilename(filename)
             .map(songDto -> new ResponseEntity<>(songDto, HttpStatus.OK))
             .defaultIfEmpty(new ResponseEntity<>(HttpStatus.NOT_FOUND));
@@ -55,6 +55,10 @@ public Mono<ResponseEntity<SongDto>> getSongById(@PathVariable UUID id) {
                 .map(songs -> new ResponseEntity<>(songs, HttpStatus.OK));
     }
 
+    @GetMapping("/search")
+    public Flux<SongDto> searchSongs(@RequestBody SongDto searchCriteria) {
+        return songService.searchSongs(searchCriteria);
+    }
 
     @PutMapping("/{id}")
     public Mono<ResponseEntity<SongDto>> updateSong(@PathVariable UUID id, @RequestBody SongDto updatedDTO) {
@@ -67,11 +71,6 @@ public Mono<ResponseEntity<SongDto>> getSongById(@PathVariable UUID id) {
         return songService.deleteSong(id)
                 .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)))
                 .onErrorReturn(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-    }
-    @GetMapping("/search")
-    public List<SongDto> searchSongsByTitle(@RequestParam String keyword) {
-        List<Song> songs = songRepository.findByfilename(keyword);
-        return songs.stream().map(SongDto::from).collect(Collectors.toList());
     }
 
 }

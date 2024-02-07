@@ -11,12 +11,14 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,9 @@ public class SongService {
     private SongRepository songRepository;
     @Autowired
     private ArtistRepository artistRepository;
+
+    @Autowired
+    private ReactiveMongoTemplate reactiveMongoTemplate;
 
     @Cacheable(value = "songsByTrackNumber", key = "#trackNumber")
     public Flux<Song> getSongsByTrackNumber(int trackNumber) {
@@ -39,25 +44,24 @@ public class SongService {
         }
 
         Song song = mapDtoToEntity(songDto);
-        List<Artist> artists = songDto.getArtists().stream()
-                .map(artistDto -> getOrCreateArtist(artistDto))
-                .collect(Collectors.toList());
-        song.setArtists(artists);
 
-        return songRepository.save(song)
-                .map(this::mapEntityToDto);
+        List<Mono<Artist>> artistMonos = songDto.getArtists().stream()
+                .map(this::getOrCreateArtist)
+                .collect(Collectors.toList());
+
+        return Flux.concat(artistMonos)
+                .collectList()
+                .flatMap(artists -> {
+                    song.setArtists(artists);
+                    return songRepository.save(song).map(this::mapEntityToDto);
+                });
     }
 
-    private Artist getOrCreateArtist(ArtistDto artistDto) {
+    private Mono<Artist> getOrCreateArtist(ArtistDto artistDto) {
         if (artistDto.getId() != null) {
-            Optional<Artist> existingArtist = artistRepository.findById(UUID.fromString(artistDto.getId()));
-            if (existingArtist.isPresent()) {
-                return existingArtist.get();
-            } else {
-                throw new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.");
-            }
+            return artistRepository.findById(UUID.fromString(artistDto.getId()))
+                    .switchIfEmpty(Mono.error(new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.")));
         }
-
 
         Artist newArtist = new Artist();
         newArtist.setArtistName(artistDto.getArtistName());
@@ -80,10 +84,36 @@ public class SongService {
                 .map(this::mapEntityToDto);
     }
 
-    public Mono<SongDto> getSongByFilename(String filename) {
+    public Flux<SongDto> getSongByFilename(String filename) {
         return songRepository.findByFilename(filename)
                 .map(this::mapEntityToDto)
-                .switchIfEmpty(Mono.empty()); // Return an empty Mono if not found
+                .switchIfEmpty(Flux.empty());
+    }
+
+    public Flux<SongDto> searchSongs(SongDto searchCriteria) {
+        Criteria criteria = new Criteria();
+
+        if (searchCriteria.getFilename() != null && !searchCriteria.getFilename().isEmpty()) {
+            criteria = criteria.and("filename").is(searchCriteria.getFilename());
+        }
+
+        if (searchCriteria.getArtists() != null && !searchCriteria.getArtists().isEmpty()) {
+            for (ArtistDto artistDto : searchCriteria.getArtists()) {
+                criteria = criteria.and("artists.artistName").is(artistDto.getArtistName());
+            }
+        }
+
+        if (searchCriteria.getTrackNumber() > 0) {
+            criteria = criteria.and("trackNumber").is(searchCriteria.getTrackNumber());
+        }
+
+        if (searchCriteria.getDuration() > 0) {
+            criteria = criteria.and("duration").is(searchCriteria.getDuration());
+        }
+
+        Query query = new Query(criteria);
+        Flux<Song> songs = reactiveMongoTemplate.find(query, Song.class);
+        return songs.map(this::mapEntityToDto);
     }
 
     @CacheEvict(value = "songsById", key = "#id")
@@ -107,7 +137,6 @@ public class SongService {
 
     private boolean isTrackNumberExists(int trackNumber) {
         return false;
-        //  return songRepository.existsByTrackNumber(trackNumber);
     }
 
     private SongDto mapEntityToDto(Song song) {
@@ -122,7 +151,6 @@ public class SongService {
         }
         return songDTO;
     }
-
     private List<SongDto> mapEntitiesToDto(List<Song> songs) {
         return songs.stream().map(this::mapEntityToDto).collect(Collectors.toList());
     }

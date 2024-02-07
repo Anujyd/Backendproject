@@ -1,6 +1,7 @@
 package com.musicapp.musicbackend.repository;
 
 import com.musicapp.musicbackend.model.Song;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -15,9 +16,7 @@ public interface SongRepository extends ReactiveMongoRepository<Song, UUID> {
 
     Flux<Song> findByTrackNumber(int trackNumber);
 
-    List<Song> findByfilename(String keyword);
-
-    Mono<Song> findByFilename(String filename);
+    Flux<Song> findByFilename(String filename);
 
 }
 

@@ -12,6 +12,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,69 +26,54 @@ public class AlbumController {
     @Autowired
     private AlbumRepository albumRepository;
 
-    @PostMapping("/")
-    public ResponseEntity<Album> createAlbum(@RequestBody AlbumDTO albumDTO) {
-        if (albumDTO == null) {
-            return ResponseEntity.badRequest().body(null);
-        }
-
-        Album createdAlbum = albumService.createAlbum(albumDTO);
-        return ResponseEntity.ok(createdAlbum);
-    }
+@PostMapping("/")
+public Mono<ResponseEntity<Album>> createAlbum(@RequestBody AlbumDTO albumDTO) {
+    return albumService.createAlbum(albumDTO)
+            .map(album -> ResponseEntity.ok(album))
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+}
 
     @GetMapping("/")
-    public ResponseEntity<Page<Album>> getAllAlbums(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Album> albums = albumService.getAllAlbums(pageable);
-        return ResponseEntity.ok(albums);
+    public Flux<Album> getAllAlbums(@RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "10") int size) {
+        return albumService.getAllAlbums(PageRequest.of(page, size));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Album> getAlbumById(@PathVariable UUID id) {
-        if (id == null) {
-            return ResponseEntity.badRequest().body(null);
-        }
+@GetMapping("/{id}")
+public Mono<ResponseEntity<Album>> getAlbumById(@PathVariable UUID id) {
+    return albumService.getAlbumById(id)
+            .map(album -> ResponseEntity.ok(album))
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+}
 
-        Album album = albumService.getAlbumById(id);
-        if (album != null) {
-            return ResponseEntity.ok(album);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    @PutMapping("/{name}")
+    public Flux<ResponseEntity<Album>> updateAlbum(@PathVariable String name, @RequestBody AlbumDTO updatedDTO) {
+        return albumService.updateAlbum(name, updatedDTO)
+                .map(album -> ResponseEntity.ok(album))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Album> updateAlbum(@PathVariable UUID id, @RequestBody AlbumDTO updatedDTO) {
-        if (id == null || updatedDTO == null) {
-            return ResponseEntity.badRequest().body(null);
-        }
-
-        Album updatedAlbum = albumService.updateAlbum(id, updatedDTO);
-        if (updatedAlbum != null) {
-            return ResponseEntity.ok(updatedAlbum);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    @GetMapping("/searchAlbumsByName")
+    public Flux<Album> searchAlbumsByName(@RequestParam String name) {
+        return albumService.searchAlbumsByName(name);
     }
 
+    @GetMapping("/searchAlbumsByLabel")
+    public  Flux<Album> searchAlbumsByLabel(@RequestParam String label){return albumService.searchAlbumsByLabel(label);}
     @GetMapping("/search")
-    public ResponseEntity<List<Album>> searchAlbumsByName(@RequestParam String name) {
-        List<Album> albums = albumService.searchAlbumsByName(name);
-        return ResponseEntity.ok(albums);
+    public Flux<Album> searchAlbums(@ModelAttribute AlbumDTO searchCriteria) {
+        return albumService.searchAlbums(searchCriteria);
     }
+
 
     @GetMapping("/albumName/{name}")
-    public List<Album> getAlbumByAlbumName(@PathVariable String name) {
-
+    public Flux<Album> getAlbumByAlbumName(@PathVariable String name) {
         return albumService.getAlbumByAlbumName(name);
     }
 
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAlbum(@PathVariable UUID id) {
-        if (id == null) {
-            return ResponseEntity.badRequest().build();
-        }
-        albumService.deleteAlbum(id);
-        return ResponseEntity.noContent().build();
+    public Mono<Void> deleteAlbum(@PathVariable UUID id) {
+        return albumService.deleteAlbum(id);
     }
 }

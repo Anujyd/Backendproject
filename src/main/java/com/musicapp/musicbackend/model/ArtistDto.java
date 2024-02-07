@@ -1,13 +1,9 @@
 package com.musicapp.musicbackend.model;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Data
 public class  ArtistDto implements Serializable {
@@ -15,8 +11,7 @@ public class  ArtistDto implements Serializable {
 
     @NotBlank
     private String artistName;
-//    @NotNull
-//    private  SongDto song;
+
     private String imageUrl;
     @NotBlank
     private String country;
@@ -30,10 +25,6 @@ public class  ArtistDto implements Serializable {
         artistDto.setCountry(artist.getCountry());
         artistDto.setRole(artist.getRole());
         artistDto.setImageUrl(artist.getImageUrl());
-//        artistDto.setImageData(artist.getImageData());
-//        if (artist.getSong() != null) {
-//            artistDto.setSong(SongDto.from(artist.getSong()));
-//        }
         return artistDto;
     }
 
