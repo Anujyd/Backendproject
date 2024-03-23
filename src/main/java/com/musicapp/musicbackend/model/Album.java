@@ -36,4 +36,8 @@ public class Album implements Serializable {
     public void prePersist() {
         this.setId(UUID.randomUUID().toString());
     }
+
+//    public Album(String id) {
+//        this.id = id;
+//    }
 }

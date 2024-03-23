@@ -6,10 +6,10 @@ import com.musicapp.musicbackend.model.Song;
 import com.musicapp.musicbackend.model.SongDto;
 import com.musicapp.musicbackend.repository.ArtistRepository;
 import com.musicapp.musicbackend.repository.SongRepository;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -38,31 +38,39 @@ public class SongService {
         return songRepository.findByTrackNumber(trackNumber);
     }
 
+    @Cacheable(value = "songsByTitlename", key = "#titlename")
+public Flux<Song> getSongByTitlename(String titlename) {
+    System.out.println("calling from db");
+    return songRepository.findByTitlename(titlename);
+}
     public Mono<SongDto> createSong(@Valid SongDto songDto) {
-        if (isTrackNumberExists(songDto.getTrackNumber())) {
-            return Mono.error(new IllegalArgumentException("Track number already exists."));
+        try {
+            if (isTrackNumberExists(songDto.getTrackNumber())) {
+                return Mono.error(new IllegalArgumentException("Track number already exists."));
+            }
+
+            Song song = mapDtoToEntity(songDto);
+            Flux<Artist> artistFlux = Flux.fromIterable(songDto.getArtists())
+                    .flatMap(artistDto -> {
+                        if (artistDto.getId() != null && !artistDto.getId().isEmpty()) {
+                            return artistRepository.findById(UUID.fromString(artistDto.getId()))
+                                    .switchIfEmpty(createNewArtist(artistDto));
+                        } else {
+                            return createNewArtist(artistDto);
+                        }
+                    });
+
+            return artistFlux.collectList()
+                    .flatMap(artists -> {
+                        song.setArtists(artists);
+                        return songRepository.save(song)
+                                .map(this::mapEntityToDto);
+                    });
+        }catch (Exception e){
+            return Mono.error(e);
         }
-
-        Song song = mapDtoToEntity(songDto);
-
-        List<Mono<Artist>> artistMonos = songDto.getArtists().stream()
-                .map(this::getOrCreateArtist)
-                .collect(Collectors.toList());
-
-        return Flux.concat(artistMonos)
-                .collectList()
-                .flatMap(artists -> {
-                    song.setArtists(artists);
-                    return songRepository.save(song).map(this::mapEntityToDto);
-                });
     }
-
-    private Mono<Artist> getOrCreateArtist(ArtistDto artistDto) {
-        if (artistDto.getId() != null) {
-            return artistRepository.findById(UUID.fromString(artistDto.getId()))
-                    .switchIfEmpty(Mono.error(new EntityNotFoundException("Artist with ID " + artistDto.getId() + " not found.")));
-        }
-
+    private Mono<Artist> createNewArtist(ArtistDto artistDto) {
         Artist newArtist = new Artist();
         newArtist.setArtistName(artistDto.getArtistName());
         newArtist.setCountry(artistDto.getCountry());
@@ -70,6 +78,8 @@ public class SongService {
         newArtist.setImageUrl(artistDto.getImageUrl());
         return artistRepository.save(newArtist);
     }
+
+
 
     public Mono<List<SongDto>> getAllSongs(int pageNumber, int pageSize) {
         return songRepository.findAll()
@@ -79,22 +89,18 @@ public class SongService {
                 .map(this::mapEntitiesToDto);
     }
 
-    public Mono<SongDto> getSongById(UUID id) {
-        return songRepository.findById(id)
-                .map(this::mapEntityToDto);
+    @Cacheable(value = "songsById", key = "#id")
+    public Mono<Song> getSongById(UUID id) {
+        System.out.println("called from db");
+        return songRepository.findById(id);
     }
 
-    public Flux<SongDto> getSongByFilename(String filename) {
-        return songRepository.findByFilename(filename)
-                .map(this::mapEntityToDto)
-                .switchIfEmpty(Flux.empty());
-    }
 
     public Flux<SongDto> searchSongs(SongDto searchCriteria) {
         Criteria criteria = new Criteria();
 
-        if (searchCriteria.getFilename() != null && !searchCriteria.getFilename().isEmpty()) {
-            criteria = criteria.and("filename").is(searchCriteria.getFilename());
+        if (searchCriteria.getTitlename() != null && !searchCriteria.getTitlename().isEmpty()) {
+            criteria = criteria.and("filename").is(searchCriteria.getTitlename());
         }
 
         if (searchCriteria.getArtists() != null && !searchCriteria.getArtists().isEmpty()) {
@@ -110,39 +116,48 @@ public class SongService {
         if (searchCriteria.getDuration() > 0) {
             criteria = criteria.and("duration").is(searchCriteria.getDuration());
         }
-
         Query query = new Query(criteria);
         Flux<Song> songs = reactiveMongoTemplate.find(query, Song.class);
         return songs.map(this::mapEntityToDto);
     }
 
+    @CacheEvict(value = "songsByTitlename", key = "#titlename")
+    public Flux<SongDto> updateSongByTitlename(String titlename, SongDto updatedDTO) {
+        return songRepository.findByTitlename(titlename)
+                .flatMap(existingSong -> {
+
+                    existingSong.setTitlename(updatedDTO.getTitlename());
+                    existingSong.setFavorite(updatedDTO.isFavorite());
+                    existingSong.setTrackNumber(updatedDTO.getTrackNumber());
+                    existingSong.setDuration(updatedDTO.getDuration());
+
+                    return songRepository.save(existingSong)
+                            .map(this::mapEntityToDto);
+                });
+    }
     @CacheEvict(value = "songsById", key = "#id")
     public Mono<SongDto> updateSong(UUID id, SongDto updatedDTO) {
         return songRepository.findById(id)
                 .flatMap(existingSong -> {
-                    if (existingSong.getTrackNumber() != updatedDTO.getTrackNumber() && isTrackNumberExists(updatedDTO.getTrackNumber())) {
-                        return Mono.error(new IllegalArgumentException("Track number already exists."));
-                    } else {
-                        Song updatedSong = mapDtoToEntity(updatedDTO);
-                        updatedSong.setId(id.toString());
-                        return songRepository.save(updatedSong)
-                                .map(this::mapEntityToDto);
-                    }
+                    existingSong.setTitlename(updatedDTO.getTitlename());
+                    existingSong.setFavorite(updatedDTO.isFavorite());
+                    existingSong.setTrackNumber(updatedDTO.getTrackNumber());
+                    existingSong.setDuration(updatedDTO.getDuration());
+                    return songRepository.save(existingSong)
+                            .map(this::mapEntityToDto);
                 });
     }
 
     public Mono<Void> deleteSong(UUID id) {
         return songRepository.deleteById(id);
     }
-
     private boolean isTrackNumberExists(int trackNumber) {
         return false;
     }
-
-    private SongDto mapEntityToDto(Song song) {
+    public SongDto mapEntityToDto(Song song) {
         SongDto songDTO = new SongDto();
         songDTO.setId(song.getId());
-        songDTO.setFilename(song.getFilename());
+        songDTO.setTitlename(song.getTitlename());
         songDTO.setFavorite(song.isFavorite());
         songDTO.setTrackNumber(song.getTrackNumber());
         songDTO.setDuration(song.getDuration());
@@ -158,7 +173,7 @@ public class SongService {
     private Song mapDtoToEntity(SongDto songDto) {
         Song song = new Song();
         song.setId(songDto.getId());
-        song.setFilename(songDto.getFilename());
+        song.setTitlename(songDto.getTitlename());
         song.setFavorite(songDto.isFavorite());
         song.setTrackNumber(songDto.getTrackNumber());
         song.setDuration(songDto.getDuration());

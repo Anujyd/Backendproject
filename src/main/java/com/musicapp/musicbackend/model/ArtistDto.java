@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 @Data
 public class  ArtistDto implements Serializable {
@@ -18,6 +19,8 @@ public class  ArtistDto implements Serializable {
     @NotBlank
     private String role;
 
+
+
     public static ArtistDto from (Artist artist){
         ArtistDto artistDto = new ArtistDto();
         artistDto.setId(artist.getId());
@@ -28,4 +31,7 @@ public class  ArtistDto implements Serializable {
         return artistDto;
     }
 
+    public ArtistDto() {
+        this.id = UUID.randomUUID().toString();
+    }
 }

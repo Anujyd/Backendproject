@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/songs")
@@ -23,25 +22,25 @@ public class SongController {
 
     @Autowired
     private SongRepository songRepository;
+
     @PostMapping("/")
     public Mono<ResponseEntity<SongDto>> createSong(@RequestBody SongDto songDto) {
         return Mono.just(songDto)
                 .flatMap(songService::createSong)
                 .map(createdSong -> new ResponseEntity<>(createdSong, HttpStatus.CREATED));
     }
-@GetMapping("/filename/{filename}")
-public Flux<ResponseEntity<SongDto>> getSongByFilename(@PathVariable String filename) {
-    return songService.getSongByFilename(filename)
-            .map(songDto -> new ResponseEntity<>(songDto, HttpStatus.OK))
-            .defaultIfEmpty(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-}
-@GetMapping("/{id}")
-public Mono<ResponseEntity<SongDto>> getSongById(@PathVariable UUID id) {
-    return songService.getSongById(id)
-            .map(song -> new ResponseEntity<>(song, HttpStatus.OK))
-            .defaultIfEmpty(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-}
 
+    @GetMapping("/titlename/{titlename}")
+    public Flux<Song> getSongByTitlename(@PathVariable String titlename) {
+        return songService.getSongByTitlename(titlename);
+    }
+
+    @GetMapping("/{id}")
+    public Mono<SongDto> getSongById(@PathVariable UUID id) {
+        return songService.getSongById(id)
+                .map(SongDto::from)
+                .switchIfEmpty(Mono.just(new SongDto()));
+    }
     @GetMapping("/track/{trackNumber}")
     public Flux<Song> getSongsByTrackNumber(@PathVariable int trackNumber) {
         return songService.getSongsByTrackNumber(trackNumber);
@@ -63,9 +62,17 @@ public Mono<ResponseEntity<SongDto>> getSongById(@PathVariable UUID id) {
     @PutMapping("/{id}")
     public Mono<ResponseEntity<SongDto>> updateSong(@PathVariable UUID id, @RequestBody SongDto updatedDTO) {
         return songService.updateSong(id, updatedDTO)
+                .map(updated -> ResponseEntity.ok(updated))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/titlename/{titlename}")
+    public Flux<ResponseEntity<SongDto>> updateSongByTitlename(@PathVariable String titlename, @RequestBody SongDto updatedDTO) {
+        return songService.updateSongByTitlename(titlename, updatedDTO)
                 .map(updated -> new ResponseEntity<>(updated, HttpStatus.OK))
                 .defaultIfEmpty(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
+
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteSong(@PathVariable UUID id) {
         return songService.deleteSong(id)

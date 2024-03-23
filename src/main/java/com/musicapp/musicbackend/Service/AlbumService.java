@@ -36,6 +36,7 @@ public Mono<Album> createAlbum(AlbumDTO albumDTO) {
     }
 
     Album album = new Album();
+//    album.setId(UUID.randomUUID().toString());
     album.setName(albumDTO.getName());
     album.setLabel(albumDTO.getLabel());
     album.setLanguage(albumDTO.getLanguage());
@@ -56,11 +57,11 @@ public Mono<Album> createAlbum(AlbumDTO albumDTO) {
 
     private Flux<Song> createOrUpdateSong(SongDto songDto) {
         // Check if song exists by filename
-        return songRepository.findByFilename(songDto.getFilename())
+        return songRepository.findByTitlename(songDto.getTitlename())
                 .switchIfEmpty(Mono.defer(() -> Mono.just(new Song())))  // If not found, create a new Song
                 .flatMap(existingSong -> {
                     // Set song properties
-                    existingSong.setFilename(songDto.getFilename());
+                    existingSong.setTitlename(songDto.getTitlename());
                     existingSong.setTrackNumber(songDto.getTrackNumber());
                     existingSong.setDuration(songDto.getDuration());
                     existingSong.setFavorite(songDto.isFavorite());
